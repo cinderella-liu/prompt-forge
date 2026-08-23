@@ -52,11 +52,11 @@ type HistoryItem = {
 
 const historyKey = "prompt.forge.history.v1";
 
-const modeMeta: Record<Mode, { label: string; icon: ReactNode; defaultTool: string }> = {
-  text: { label: "文本", icon: <FileText size={18} />, defaultTool: "ChatGPT / Claude / Qwen" },
-  image: { label: "图片", icon: <Image size={18} />, defaultTool: "Midjourney / Flux / DALL-E" },
-  video: { label: "视频", icon: <Video size={18} />, defaultTool: "Kling / Runway / Pika" },
-  code: { label: "代码", icon: <Code2 size={18} />, defaultTool: "Cursor / Claude Code / Copilot" },
+const modeMeta: Record<Mode, { label: string; tag: string; icon: ReactNode; defaultTool: string }> = {
+  text: { label: "文本", tag: "文章 / 论证", icon: <FileText size={18} />, defaultTool: "ChatGPT / Claude / Qwen" },
+  image: { label: "图片", tag: "画面生成", icon: <Image size={18} />, defaultTool: "Midjourney / Flux / DALL-E" },
+  video: { label: "视频", tag: "镜头运动", icon: <Video size={18} />, defaultTool: "Kling / Runway / Pika" },
+  code: { label: "代码", tag: "功能实现", icon: <Code2 size={18} />, defaultTool: "Cursor / Claude Code / Copilot" },
 };
 
 const detailLabels: Record<DetailLevel, string> = {
@@ -401,7 +401,7 @@ export function App() {
       <section className="control-pane">
         <header className="brand-bar">
           <div>
-            <p>意图编译器</p>
+            <p>输入一句话，生成高质量提示词</p>
             <h1>Prompt Forge</h1>
           </div>
           <button className="icon-button" aria-label="设置">
@@ -424,11 +424,16 @@ export function App() {
               ))}
             </div>
           </div>
+          <div className="field-note">支持多选输出类型；图片和视频会生成英文执行稿。</div>
           <div className="mode-grid" aria-label="模态选择">
             {(Object.keys(modeMeta) as Mode[]).map((mode) => (
-              <button className={selectedModes.includes(mode) ? "mode-pill active" : "mode-pill"} key={mode} type="button" onClick={() => toggleMode(mode)}>
-                {modeMeta[mode].icon}
-                {modeMeta[mode].label}
+              <button className={selectedModes.includes(mode) ? "mode-card active" : "mode-card"} key={mode} type="button" onClick={() => toggleMode(mode)}>
+                <span className="mode-icon">{modeMeta[mode].icon}</span>
+                <span>
+                  <strong>{modeMeta[mode].label}</strong>
+                  <small>{modeMeta[mode].tag}</small>
+                </span>
+                <i aria-hidden="true">{selectedModes.includes(mode) ? <Check size={15} /> : null}</i>
               </button>
             ))}
           </div>
@@ -441,8 +446,9 @@ export function App() {
           </div>
           <button className="generate-button" type="button" onClick={runGenerate} disabled={!input.trim()}>
             <Wand2 size={20} />
-            生成多模态 Prompt
+            一键生成
           </button>
+          <div className="generate-note">{selectedModes.length || 4} 个类型将生成；空输入时不可生成。</div>
         </section>
 
         <section className="intent-card">
@@ -480,7 +486,7 @@ export function App() {
       <section className="output-pane">
         <div className="output-header">
           <div>
-            <p>四种模态，各说各的母语</p>
+            <p>可复制，可编辑，可测试</p>
             <h2>生成结果</h2>
           </div>
           <span>{results.length} 个 prompt</span>
