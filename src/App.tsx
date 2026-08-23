@@ -6,10 +6,10 @@ import {
   Image,
   Moon,
   Pencil,
-  Play,
   RotateCcw,
   Settings2,
   Sparkles,
+  Trash2,
   Video,
   Wand2,
   X,
@@ -390,6 +390,10 @@ export function App() {
     setResults((current) => current.map((result) => (result.mode === mode ? { ...result, prompt } : result)));
   }
 
+  function deleteHistoryItem(id: string) {
+    setHistory((current) => current.filter((item) => item.id !== id));
+  }
+
   async function copyPrompt(mode: Mode, prompt: string) {
     await navigator.clipboard.writeText(prompt);
     setCopiedMode(mode);
@@ -539,19 +543,24 @@ export function App() {
             <div className="history-list">
               {history.length ? (
                 history.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      setInput(item.input);
-                      setDetail(item.detail);
-                      setSelectedModes(item.modes);
-                      setResults(item.results);
-                    }}
-                  >
-                    <strong>{item.input}</strong>
-                    <span>{formatDate(item.createdAt)}</span>
-                  </button>
+                  <div className="history-item" key={item.id}>
+                    <button
+                      className="history-load"
+                      type="button"
+                      onClick={() => {
+                        setInput(item.input);
+                        setDetail(item.detail);
+                        setSelectedModes(item.modes);
+                        setResults(item.results);
+                      }}
+                    >
+                      <strong>{item.input}</strong>
+                      <span>{formatDate(item.createdAt)}</span>
+                    </button>
+                    <button className="history-delete" type="button" aria-label="删除历史记录" onClick={() => deleteHistoryItem(item.id)}>
+                      <Trash2 size={17} />
+                    </button>
+                  </div>
                 ))
               ) : (
                 <p>生成后会保存最近 20 条记录。</p>
