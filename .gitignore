@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Web build output
+dist/
+*.tsbuildinfo
+
+# Environment and local machine files
+.env
+.env.*
+!.env.example
+local.properties
+android/local.properties
+
+# Generated APKs and release artifacts
+*.apk
+*.aab
+*.ap_
+
+# Android / Gradle generated files
+.gradle/
+build/
+android/.gradle/
+android/build/
+android/app/build/
+
+# IDE and OS files
+.DS_Store
+.idea/
+.vscode/
+*.iml
+
