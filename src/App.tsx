@@ -34,6 +34,7 @@ type Intent = {
 };
 
 type PromptResult = {
+  id: string;
   mode: Mode;
   title: string;
   applicable: boolean;
@@ -50,7 +51,16 @@ type HistoryItem = {
   results: PromptResult[];
 };
 
+type PromptAsset = PromptResult & {
+  batchId: string;
+  input: string;
+  detail: DetailLevel;
+  createdAt: string;
+  updatedAt: string;
+};
+
 const historyKey = "prompt.forge.history.v1";
+const promptAssetKey = "prompt.forge.assets.v1";
 
 const modeMeta: Record<Mode, { label: string; tag: string; icon: ReactNode; defaultTool: string }> = {
   text: { label: "文本", tag: "文章 / 论证", icon: <FileText size={18} />, defaultTool: "ChatGPT / Claude / Qwen" },
@@ -70,10 +80,26 @@ const examples = [
   "做一个番茄钟 App，支持自定义时长和通知",
 ];
 
+function compactId(value: string) {
+  return value.replace(/-/g, "").slice(0, 8).toUpperCase();
+}
+
+function createPromptId(mode: Mode) {
+  return `PF-${mode.toUpperCase()}-${compactId(crypto.randomUUID())}`;
+}
+
+function createBatchId() {
+  return `BATCH-${compactId(crypto.randomUUID())}`;
+}
+
 function loadHistory(): HistoryItem[] {
   try {
     const raw = window.localStorage.getItem(historyKey);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return parsed.map((item: HistoryItem) => ({
+      ...item,
+      results: item.results.map((result) => ({ ...result, id: result.id || createPromptId(result.mode) })),
+    }));
   } catch {
     return [];
   }
@@ -81,6 +107,19 @@ function loadHistory(): HistoryItem[] {
 
 function saveHistory(items: HistoryItem[]) {
   window.localStorage.setItem(historyKey, JSON.stringify(items.slice(0, 20)));
+}
+
+function loadPromptAssets(): PromptAsset[] {
+  try {
+    const raw = window.localStorage.getItem(promptAssetKey);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function savePromptAssets(items: PromptAsset[]) {
+  window.localStorage.setItem(promptAssetKey, JSON.stringify(items.slice(0, 200)));
 }
 
 function detectLanguage(input: string): Intent["language"] {
@@ -333,6 +372,7 @@ function generateResults(input: string, modes: Mode[], detail: DetailLevel): Pro
   return modes.map((mode) => {
     const notApplicable = modeApplicable(mode, input);
     return {
+      id: createPromptId(mode),
       mode,
       title: `${modeMeta[mode].label} Prompt`,
       applicable: !notApplicable,
@@ -354,14 +394,21 @@ export function App() {
   const [detail, setDetail] = useState<DetailLevel>("standard");
   const [results, setResults] = useState<PromptResult[]>(() => generateResults(examples[0], ["text", "image", "video", "code"], "standard"));
   const [history, setHistory] = useState<HistoryItem[]>(loadHistory);
+  const [promptAssets, setPromptAssets] = useState<PromptAsset[]>(loadPromptAssets);
   const [editingMode, setEditingMode] = useState<Mode | null>(null);
   const [copiedMode, setCopiedMode] = useState<Mode | null>(null);
+  const [copiedAssetId, setCopiedAssetId] = useState<string | null>(null);
   const [intentOpen, setIntentOpen] = useState(false);
+  const [promptAssetsOpen, setPromptAssetsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
     saveHistory(history);
   }, [history]);
+
+  useEffect(() => {
+    savePromptAssets(promptAssets);
+  }, [promptAssets]);
 
   const intent = useMemo(() => analyzeIntent(input), [input]);
 
@@ -371,33 +418,60 @@ export function App() {
 
   function runGenerate() {
     const modes = selectedModes.length ? selectedModes : (["text", "image", "video", "code"] as Mode[]);
+    const batchId = createBatchId();
+    const createdAt = new Date().toISOString();
     const nextResults = generateResults(input, modes, detail);
     setResults(nextResults);
+    setPromptAssets((current) => [
+      ...nextResults.map((result) => ({
+        ...result,
+        batchId,
+        input,
+        detail,
+        createdAt,
+        updatedAt: createdAt,
+      })),
+      ...current,
+    ].slice(0, 200));
     setHistory((current) => [
       {
-        id: crypto.randomUUID(),
+        id: batchId,
         input,
         detail,
         modes,
         results: nextResults,
-        createdAt: new Date().toISOString(),
+        createdAt,
       },
       ...current,
     ].slice(0, 20));
   }
 
   function updateResult(mode: Mode, prompt: string) {
+    const target = results.find((result) => result.mode === mode);
     setResults((current) => current.map((result) => (result.mode === mode ? { ...result, prompt } : result)));
+    if (target) {
+      setPromptAssets((assets) => assets.map((asset) => (asset.id === target.id ? { ...asset, prompt, updatedAt: new Date().toISOString() } : asset)));
+    }
   }
 
   function deleteHistoryItem(id: string) {
     setHistory((current) => current.filter((item) => item.id !== id));
   }
 
+  function deletePromptAsset(id: string) {
+    setPromptAssets((current) => current.filter((item) => item.id !== id));
+  }
+
   async function copyPrompt(mode: Mode, prompt: string) {
     await navigator.clipboard.writeText(prompt);
     setCopiedMode(mode);
     window.setTimeout(() => setCopiedMode(null), 1400);
+  }
+
+  async function copyPromptAsset(asset: PromptAsset) {
+    await navigator.clipboard.writeText(asset.prompt);
+    setCopiedAssetId(asset.id);
+    window.setTimeout(() => setCopiedAssetId(null), 1400);
   }
 
   return (
@@ -498,11 +572,14 @@ export function App() {
 
         <div className="result-grid">
           {results.map((result) => (
-            <article className={result.applicable ? "result-card" : "result-card muted"} key={result.mode}>
+            <article className={result.applicable ? "result-card" : "result-card muted"} key={result.id}>
               <div className="result-head">
                 <div>
                   {modeMeta[result.mode].icon}
-                  <strong>{result.title}</strong>
+                  <span>
+                    <strong>{result.title}</strong>
+                    <small>{result.id}</small>
+                  </span>
                 </div>
                 <span>{result.applicable ? modeMeta[result.mode].defaultTool : "不适用"}</span>
               </div>
@@ -529,6 +606,53 @@ export function App() {
         <section className="rule-card">
           <Moon size={18} />
           <p>本版测试目标：验证一句自然语言输入能否被结构化，并稳定生成文本、图片、视频、代码四种提示词；当前仍是内置 schema 逻辑，不调用真实模型。</p>
+        </section>
+
+        <section className="history-panel prompt-library">
+          <button className="history-toggle" type="button" onClick={() => setPromptAssetsOpen((open) => !open)}>
+            <span>
+              <Clipboard size={18} />
+              提示词库
+            </span>
+            <strong>{promptAssetsOpen ? "收起" : `${promptAssets.length} 条`}</strong>
+          </button>
+          {promptAssetsOpen ? (
+            <div className="asset-list">
+              {promptAssets.length ? (
+                promptAssets.map((asset) => (
+                  <div className="asset-item" key={asset.id}>
+                    <button
+                      className="asset-load"
+                      type="button"
+                      onClick={() => {
+                        setInput(asset.input);
+                        setDetail(asset.detail);
+                        setSelectedModes([asset.mode]);
+                        setResults([asset]);
+                      }}
+                    >
+                      <span className="asset-topline">
+                        <strong>{asset.id}</strong>
+                        <small>{modeMeta[asset.mode].label}</small>
+                      </span>
+                      <span>{asset.input}</span>
+                      <small>{formatDate(asset.updatedAt)} 更新</small>
+                    </button>
+                    <div className="asset-actions">
+                      <button type="button" onClick={() => copyPromptAsset(asset)}>
+                        {copiedAssetId === asset.id ? <Check size={17} /> : <Clipboard size={17} />}
+                      </button>
+                      <button type="button" onClick={() => deletePromptAsset(asset.id)}>
+                        <Trash2 size={17} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p>生成后，每条提示词会带 ID 累计保存在这里。</p>
+              )}
+            </div>
+          ) : null}
         </section>
 
         <section className="history-panel history-panel-last">
