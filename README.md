@@ -14,7 +14,7 @@ The current version is a local schema-driven MVP. It does not call a real LLM ye
 - Version under test: v0.6
 - Platform: Web single-page app wrapped as Android APK with Capacitor
 - Intent analysis is preserved but hidden by default
-- Image and video prompts use "Chinese understanding + English executable prompt"
+- Image and video prompts use "Chinese understanding + structured draft preserving the original language"
 
 See [DECISIONS.md](./DECISIONS.md) before continuing product iteration.
 
@@ -22,6 +22,7 @@ See [DECISIONS.md](./DECISIONS.md) before continuing product iteration.
 
 ```bash
 npm install
+npm test
 npm run build
 ```
 
@@ -45,3 +46,11 @@ APK output:
 ```text
 android/app/build/outputs/apk/debug/app-debug.apk
 ```
+
+## Regression checks
+
+`npm test` runs the intent-preservation and edit/history regression suite. Run it together with `npm run build` before submitting changes.
+
+Generators live in `src/generator.ts`, shared data types in `src/types.ts`, and history reconciliation in `src/history.ts`. Explicit platform, language and aspect-ratio requirements take priority over defaults. Drafts remain rule-based and do not translate Chinese into English.
+
+Edits update both the prompt library and history. When loading older history, matching library assets supply the latest text. Local history retains 20 batches and the library retains 200 prompts; important content should be backed up separately.
