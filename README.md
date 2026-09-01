@@ -49,7 +49,7 @@ android/app/build/outputs/apk/debug/app-debug.apk
 
 ## Regression checks
 
-`npm test` runs the intent-preservation and edit/history regression suite. Run it together with `npm run build` before submitting changes.
+`npm test` runs the intent-preservation and edit/history regression suite. Pull requests run tests and the production build; deployment also runs the tests first.
 
 Generators live in `src/generator.ts`, shared data types in `src/types.ts`, and history reconciliation in `src/history.ts`. Explicit platform, language and aspect-ratio requirements take priority over defaults. Drafts remain rule-based and do not translate Chinese into English.
 
